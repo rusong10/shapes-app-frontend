@@ -9,6 +9,7 @@ import { useShapes, useCreateShape, useDeleteShape, useUpdateShape } from "@/hoo
 //custom components
 import { useAuth } from "@/context/AuthContext";
 import { ShapesTable } from "@/components/ShapesTable";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { Shape, ShapeField } from "@/lib/types";
 
 // shadcn
@@ -150,7 +151,10 @@ export default function AdminDashboardPage() {
                 <h1 className="text-3xl font-bold tracking-tight">
                     Admin Dashboard
                 </h1>
+
+
                 <div className="flex items-center space-x-3">
+                    <ThemeToggle />
                     <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
                         <DialogTrigger asChild>
                             <Button variant="default" onClick={handleOpenCreateDialog}>Add New Entry</Button>

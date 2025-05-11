@@ -1,8 +1,9 @@
 "use client"
 
-import { ShapesTable } from "@/components/ShapesTable";
 import { useShapes } from "@/hooks/useShapes";
 import { useShapesWS } from "@/hooks/useShapesWS";
+import { ShapesTable } from "@/components/ShapesTable";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 export default function Home() {
   const { data: shapes, isLoading, error } = useShapes()
@@ -17,7 +18,7 @@ export default function Home() {
         <h1 className="text-3xl font-bold tracking-tight">
           User Portal
         </h1>
-        {/* <ThemeToggle /> */}
+        <ThemeToggle />
       </div>
 
 
