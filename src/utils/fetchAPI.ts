@@ -1,5 +1,5 @@
 import { getCookie } from "@/utils/cookies";
-import { FetchAPIParams, FetchAPIResponse, APIError } from "@/lib/types";
+import { FetchAPIParams, FetchAPIResponse, APIErrorResponse } from "@/lib/types";
 
 export const FetchAPI = async <T = unknown>({
     url,
@@ -76,7 +76,7 @@ export const FetchAPI = async <T = unknown>({
             };
         }
 
-        let responseData: T | APIError | null = null;
+        let responseData: T | APIErrorResponse | null = null;
         let parseErrorOccurred = false;
         try {
             responseData = await response.json();
@@ -86,9 +86,9 @@ export const FetchAPI = async <T = unknown>({
         }
 
         if (!response.ok) {
-            let errorPayload: string | APIError = `Request failed with status ${response.status}.`;
+            let errorPayload: string | APIErrorResponse = `Request failed with status ${response.status}.`;
             if (responseData && typeof responseData === "object" && !parseErrorOccurred) {
-                errorPayload = responseData as APIError;
+                errorPayload = responseData as APIErrorResponse;
             } else if (parseErrorOccurred) {
                 errorPayload = `Request failed with status ${response.status} and error response was not valid JSON.`;
             }
