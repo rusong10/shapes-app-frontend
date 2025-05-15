@@ -45,6 +45,22 @@ export default function AdminDashboardPage() {
     const updateShape = useUpdateShape();
     const deleteShape = useDeleteShape();
 
+    const getErrorMessage = (e: unknown): string => {
+        if (e instanceof Error) {
+            return e.message;
+        }
+
+        if (typeof e === "string") {
+            return e;
+        }
+
+        if (e && typeof e === "object" && "message" in e && typeof (e as { message: unknown }).message === "string") {
+            return (e as { message: string }).message;
+        }
+
+        return "An unexpected error occurred.";
+    };
+
     const handleOpenEditDialog = (data: Shape) => {
         setFormError(null);
         setIsEditDialogOpen(true);
@@ -85,8 +101,8 @@ export default function AdminDashboardPage() {
             }
 
             setIsCreateDialogOpen(false);
-        } catch (err: any) {
-            setFormError(err?.message || "Failed to create shape");
+        } catch (err: unknown) {
+            setFormError(getErrorMessage(err));
         } finally {
             setIsSubmitting(false);
         }
@@ -119,8 +135,8 @@ export default function AdminDashboardPage() {
             }
 
             setIsEditDialogOpen(false);
-        } catch (err: any) {
-            setFormError(err?.message || "Failed to update shape");
+        } catch (err: unknown) {
+            setFormError(getErrorMessage(err));
         } finally {
             setIsSubmitting(false);
         }
@@ -137,8 +153,8 @@ export default function AdminDashboardPage() {
             if (result && !result.success) {
                 setDeleteError(typeof result.error === "string" ? result.error : "Failed to delete shape");
             }
-        } catch (err: any) {
-            setDeleteError(err?.message || "Failed to delete shape");
+        } catch (err: unknown) {
+            setDeleteError(getErrorMessage(err));
         }
     };
 

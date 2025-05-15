@@ -1,14 +1,14 @@
-import { getCookie } from '@/utils/cookies';
-import { FetchAPIParams, FetchAPIResponse } from '@/lib/types';
+import { getCookie } from "@/utils/cookies";
+import { FetchAPIParams, FetchAPIResponse, APIError } from "@/lib/types";
 
-export const FetchAPI = async <T = any>({
+export const FetchAPI = async <T = unknown>({
     url,
-    method = 'GET',
+    method = "GET",
     body,
-    headers = {},
     token,
     requiresAuth = true,
     requiresCSRF = false,
+    headers = {},
 }: FetchAPIParams): Promise<FetchAPIResponse<T>> => {
     if (!url) {
         return {
@@ -20,79 +20,117 @@ export const FetchAPI = async <T = any>({
     }
 
     const finalHeaders: Record<string, string> = {
-        Accept: 'application/json',
-        ...(headers || {}),
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        ...headers,
     };
 
     if (requiresAuth && token) {
-        finalHeaders['Authorization'] = `Bearer ${token}`;
+        finalHeaders["Authorization"] = `Bearer ${token}`;
     }
 
     if (requiresCSRF) {
-        const csrfToken = getCookie('csrftoken');
+        const csrfToken = getCookie("csrftoken");
         if (csrfToken) {
-            finalHeaders['X-CSRFToken'] = csrfToken;
+            finalHeaders["X-CSRFToken"] = csrfToken;
+        } else if (method !== 'GET') {
+            console.warn("CSRF token not found but requiresCSRF is true for a mutating request.");
         }
     }
 
     const fetchConfig: RequestInit = {
         method,
         headers: finalHeaders,
-        credentials: 'include',
+        credentials: "include",
     };
 
-    if (body && method.toUpperCase() !== 'GET') {
-        fetchConfig.body = JSON.stringify(body);
-        finalHeaders['Content-Type'] = 'application/json';
+    if (body && method?.toUpperCase() !== "GET") {
+        try {
+            fetchConfig.body = JSON.stringify(body);
+        } catch (stringifyError) {
+            console.error("Error stringifying body:", stringifyError);
+
+            return {
+                success: false,
+                status: 0,
+                data: null,
+                error: "Failed to stringify request body.",
+            };
+        }
+    } else if (method?.toUpperCase() === "GET") {
+        delete finalHeaders["Content-Type"];
+        fetchConfig.headers = finalHeaders;
     }
+
 
     try {
         const response = await fetch(url, fetchConfig);
 
-        const contentType = response.headers.get('content-type');
-        const isJSON = contentType?.includes('application/json');
+        // Handle 204 No Content separately as it won't have a JSON body
+        if (response.status === 204) {
+            return {
+                success: true,
+                status: response.status,
+                data: null,
+                error: null,
+            };
+        }
 
-        let data: any;
+        let responseData: T | APIError | null = null;
+        let parseErrorOccurred = false;
         try {
-            if (isJSON) {
-                data = await response.json();
-            } else if (contentType?.includes('text/')) {
-                data = await response.text();
-            } else if (response.status === 204) {
-                data = null;
-            } else {
-                data = await response.text();
-            }
-        } catch (parseError) {
-            console.error('Error parsing response:', parseError);
-            data = null;
+            responseData = await response.json();
+        } catch (e) {
+            parseErrorOccurred = true;
+            console.error("Failed to parse JSON response:", e);
         }
 
         if (!response.ok) {
+            let errorPayload: string | APIError = `Request failed with status ${response.status}.`;
+            if (responseData && typeof responseData === "object" && !parseErrorOccurred) {
+                errorPayload = responseData as APIError;
+            } else if (parseErrorOccurred) {
+                errorPayload = `Request failed with status ${response.status} and error response was not valid JSON.`;
+            }
             return {
                 success: false,
                 status: response.status,
                 data: null,
-                error: isJSON && typeof data === 'object'
-                    ? data.detail || data.message || JSON.stringify(data)
-                    : typeof data === 'string'
-                        ? data
-                        : `Request failed with status ${response.status}`,
+                error: errorPayload,
+            };
+        }
+
+        // If response.ok but JSON parsing failed
+        if (parseErrorOccurred) {
+            return {
+                success: false,
+                status: response.status,
+                data: null,
+                error: "Response was successful (2xx) but failed to parse JSON body.",
             };
         }
 
         return {
             success: true,
             status: response.status,
-            data: data as T,
+            data: responseData as T,
             error: null,
         };
-    } catch (error: any) {
+
+    } catch (networkError: unknown) {
+        let errorMessage = "Network error occurred.";
+        if (networkError instanceof Error) {
+            errorMessage = networkError.message;
+        } else if (typeof networkError === "string") {
+            errorMessage = networkError;
+        } else {
+            console.error("Non-standard network error:", networkError);
+        }
         return {
             success: false,
             status: 0,
             data: null,
-            error: error?.message || 'Network error occurred.',
+            error: errorMessage,
         };
     }
 };

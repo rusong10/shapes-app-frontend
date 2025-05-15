@@ -1,10 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { DRFError, FetchAPIResponse, Shape, ShapeField } from "@/lib/types";
+import { FetchAPIResponse, Shape, ShapeField } from "@/lib/types";
 import * as shapeService from "@/services/shapes";
 
 interface MutationError {
     message: string;
-    details?: string | DRFError | null;
+    details?: string | null;
     status?: number;
 }
 
