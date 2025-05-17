@@ -1,36 +1,45 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+## Prerequisites
+
+- Node.js 16.x or higher
+- npm 8.x or higher
+- [Shapes App Backend](https://github.com/rusong10/shapes-app-backend) running locally
 
 ## Getting Started
 
-First, run the development server:
+Follow these steps to get your development environment set up:
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+**1. Clone the Repository**
+
+```
+git clone <https://github.com/rusong10/shapes-app-frontend.git>
+cd SHAPES-APP-FRONTEND
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+**2. Install Dependencies**
+```
+npm install
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+**3. Set Up Environment Variables**
+- Create a new file named .env in the root of the project and add the following environment variables:
+```
+NEXT_PUBLIC_API_BASE_URL=http://app.localtest.me:8000
+NEXT_PUBLIC_WS_URL=ws://app.localtest.me:8000/ws/shapes/
+```
+- `NEXT_PUBLIC_API_BASE_URL`: The base URL for your Django backend's HTTP API.
+- `NEXT_PUBLIC_WES_URL`: The URL for your Django Channels WebSocket endpoint.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+**4. Ensure Backend API is Running**
+Before starting the frontend, make sure your `shapes-app-backend` API is running.
 
-## Learn More
+### Running the Development Server
+Once the dependencies are installed and environment variables are set up:
+```
+npx next dev -H app.localtest.me
+```
+Note: We use `app.localtest.me` instead of `localhost` so cookies (especially with `SameSite=Lax`) work correctly across subdomains, just like in production.
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Application Structure
+- `/` - Public page displaying all shapes with real-time updates
+- `/admin/login` - Admin login page
+- `/admin` - Admin dashboard for managing shapes (requires authentication)
