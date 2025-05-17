@@ -162,7 +162,7 @@ export function ShapesTable({
     return (
         <div className="w-full">
             <div className="rounded-md border">
-                <Table>
+                <Table className="table-auto">
                     <TableHeader>
                         {table.getHeaderGroups().map((headerGroup) => (
                             <TableRow key={headerGroup.id}>

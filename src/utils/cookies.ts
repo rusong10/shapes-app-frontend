@@ -19,7 +19,7 @@ export function setAccessTokenCookie(token: string) {
 
     Cookies.set("access_token", token, {
         path: "/admin",
-        secure: false,
+        secure: process.env.NODE_ENV === "production" ? true : false,
         sameSite: "lax",
         expires: expires
     });
