@@ -1,11 +1,12 @@
 "use client";
+
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 
-// cusotm components
+// custom components
 import { useAuth } from "@/context/AuthContext";
-import { LoginCredentials } from "@/lib/types";
+import { LoginCredentials } from "@/lib/types/types";
 
 // shadcn
 import { Input } from "@/components/ui/input";
@@ -16,6 +17,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 export default function LoginPage() {
     const { login } = useAuth()
     const router = useRouter()
+
     const [error, setError] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -25,24 +27,19 @@ export default function LoginPage() {
         formState: { errors },
     } = useForm<LoginCredentials>();
 
-
     const onSubmit = async (data: LoginCredentials) => {
         setIsSubmitting(true);
         setError(null);
 
-        try {
-            const success = await login(data);
+        const result = await login(data);
 
-            if (success) {
-                router.push("admin/shapes");
-            } else {
-                setError('Invalid username or password');
-                setIsSubmitting(false);
-            }
-        } catch {
-            setError('Invalid username or password');
-            setIsSubmitting(false);
+        if (result.status === 200) {
+            router.replace("/admin")
+        } else {
+            setError(result.detail)
         }
+
+        setIsSubmitting(false)
     };
 
     return (

@@ -1,72 +1,69 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { FetchAPIResponse, Shape, ShapeField } from "@/lib/types";
-import * as shapeService from "@/services/shapes";
+import { createShape, deleteShape, getShapes, updateShape } from "@/utils/api";
+import { APIResponse, CreateShapeResult, Shape, ShapeForm, UpdateShapeResult } from "@/lib/types/types";
 
-interface MutationError {
-    message: string;
-    details?: string | null;
-    status?: number;
+export interface MutationError {
+    detail: string;
+    status: number;
 }
 
 export const useShapes = () => {
     return useQuery<Shape[], Error>({
         queryKey: ["shapes"],
         queryFn: async () => {
-            const response = await shapeService.getShapes()
-            if (!response.success || !response.data) {
-                throw new Error(response.error as string);
+            const response = await getShapes()
+
+            if (response.status !== 200) {
+                throw new Error(response.detail);
             }
-            return response.data;
+
+            if (!response.shapes) {
+                throw new Error("No shapes found in response");
+            }
+
+            return response.shapes;
         }
     });
 };
 
 export const useCreateShape = () => {
     const queryClient = useQueryClient();
-    return useMutation<FetchAPIResponse<Shape>, MutationError, { data: ShapeField; token: string | null }>({
-        mutationFn: ({ data, token }) => shapeService.createShape(data, token),
-        onSuccess: (response) => {
-            if (response.success) {
-                queryClient.invalidateQueries({ queryKey: ["adminShapes"] });
-                queryClient.invalidateQueries({ queryKey: ["shapes"] });
-            } else {
-                console.error("Create shape reported success false in onSuccess:", response.error);
-            }
+    return useMutation<APIResponse<CreateShapeResult>, MutationError, { data: ShapeForm }>({
+        mutationFn: ({ data }) => createShape(data),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["adminShapes"] });
+            queryClient.invalidateQueries({ queryKey: ["shapes"] });
         },
         onError: (error) => {
-            console.error(`Error creating shape: ${error.message}`, error.details);
+            console.error("Error creating shape:", error.detail);
         },
     });
 };
 
 export const useUpdateShape = () => {
     const queryClient = useQueryClient();
-    return useMutation<FetchAPIResponse<Shape>, MutationError, { id: number; data: Partial<ShapeField>; token: string | null }>({
-        mutationFn: ({ id, data, token }) => shapeService.updateShape(id, data, token),
-        onSuccess: (response) => {
-            if (response.success) {
-                queryClient.invalidateQueries({ queryKey: ["adminShapes"] });
-                queryClient.invalidateQueries({ queryKey: ["shapes"] });
-            }
+    return useMutation<APIResponse<UpdateShapeResult>, MutationError, { id: number; data: Partial<ShapeForm>; }>({
+        mutationFn: ({ id, data }) => updateShape(id, data),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["adminShapes"] });
+            queryClient.invalidateQueries({ queryKey: ["shapes"] });
         },
         onError: (error) => {
-            console.error(`Error updating shape: ${error.message}`, error.details);
+            console.error("Error updating shape:", error.detail);
         },
     });
 };
 
 export const useDeleteShape = () => {
     const queryClient = useQueryClient();
-    return useMutation<FetchAPIResponse<null>, MutationError, { id: number; token: string | null }>({
-        mutationFn: ({ id, token }) => shapeService.deleteShape(id, token),
-        onSuccess: (response) => {
-            if (response.success) {
-                queryClient.invalidateQueries({ queryKey: ["adminShapes"] });
-                queryClient.invalidateQueries({ queryKey: ["shapes"] });
-            }
+    return useMutation<APIResponse, MutationError, { id: number }>({
+        mutationFn: ({ id }) => deleteShape(id),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["adminShapes"] });
+            queryClient.invalidateQueries({ queryKey: ["shapes"] });
         },
         onError: (error) => {
-            console.error(`Error deleting shape: ${error.message}`, error.details);
+            console.error("Error deleting shape:", error.detail);
         },
     });
 };

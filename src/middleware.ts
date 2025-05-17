@@ -1,29 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 
-function isAuthenticated(req: NextRequest): boolean {
-    const accessToken = req.cookies.get("accessToken")?.value;
-    return !!accessToken;
-}
+export function middleware(request: NextRequest) {
+    const accessToken = request.cookies.get("access_token")?.value;
 
-export function middleware(req: NextRequest) {
-    const { pathname } = req.nextUrl;
-    const loggedIn = isAuthenticated(req);
-
-    if (pathname === "/login" && loggedIn) {
-        return NextResponse.redirect(new URL("/admin/shapes", req.url));
+    if (request.nextUrl.pathname.startsWith("/admin") && request.nextUrl.pathname !== "/admin/login" && !accessToken) {
+        return NextResponse.redirect(new URL("/admin/login", request.nextUrl))
     }
 
-    if (
-        pathname.startsWith("/admin") &&
-        pathname !== "/login" &&
-        !loggedIn
-    ) {
-        return NextResponse.redirect(new URL("/login", req.url));
+    if (request.nextUrl.pathname === ("/admin/login") && accessToken) {
+        return NextResponse.redirect(new URL("/admin", request.nextUrl))
     }
 
     return NextResponse.next();
 }
 
 export const config = {
-    matcher: ["/login", "/admin/:path*"],
+    matcher: ["/admin", "/admin/:path*"],
 };

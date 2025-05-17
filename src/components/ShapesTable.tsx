@@ -3,7 +3,7 @@ import { flexRender, getCoreRowModel, useReactTable, getPaginationRowModel, Colu
 import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 
 // custom components
-import { Shape, ShapesTableProps } from "@/lib/types";
+import { Shape } from "@/lib/types/types";
 import ShapesIcon from "./ShapesIcon";
 
 // shadcn
@@ -11,6 +11,15 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+
+interface ShapesTableProps {
+    data: Shape[] | undefined;
+    isAdmin?: boolean;
+    onEdit?: (shape: Shape) => void;
+    onDelete?: (id: number) => void;
+    isSubmitting?: boolean;
+    isLoading?: boolean;
+}
 
 export function ShapesTable({
     data = [],
@@ -144,8 +153,8 @@ export function ShapesTable({
 
     if (isLoading) {
         return (
-            <div className="w-full py-10 flex justify-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <div className="w-full py-10 flex justify-center items-center">
+                <div className="animate-spin rounded-full h-10 w-10 border-4 border-white border-t-transparent shadow-lg"></div>
             </div>
         );
     }

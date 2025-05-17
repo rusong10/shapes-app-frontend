@@ -6,48 +6,32 @@ interface ShapeIconProps {
     size?: number;
 }
 
-const ShapesIcon: React.FC<ShapeIconProps> = ({ shape, color, size = 35 }) => {
-    const renderShape = () => {
-        switch (shape) {
-            case 'circle':
-                return (
-                    <div
-                        style={{
-                            width: size,
-                            height: size,
-                            borderRadius: '50%',
-                            backgroundColor: color,
-                        }}
+const ShapesIcon: React.FC<ShapeIconProps> = ({ shape, color, size = 30 }) => {
+    switch (shape) {
+        case 'circle':
+            return (
+                <svg width={size} height={size} className="inline-block">
+                    <circle cx={size / 2} cy={size / 2} r={size / 2} fill={color} />
+                </svg>
+            );
+        case 'square':
+            return (
+                <svg width={size} height={size} className="inline-block">
+                    <rect width={size} height={size} fill={color} />
+                </svg>
+            );
+        case 'triangle':
+            return (
+                <svg width={size} height={size} className="inline-block">
+                    <polygon
+                        points={`${size / 2},0 0,${size} ${size},${size}`}
+                        fill={color}
                     />
-                );
-            case 'square':
-                return (
-                    <div
-                        style={{
-                            width: size,
-                            height: size,
-                            backgroundColor: color,
-                        }}
-                    />
-                );
-            case 'triangle':
-                return (
-                    <div
-                        style={{
-                            width: 0,
-                            height: 0,
-                            borderLeft: `${size / 2}px solid transparent`,
-                            borderRight: `${size / 2}px solid transparent`,
-                            borderBottom: `${size}px solid ${color}`,
-                        }}
-                    />
-                );
-            default:
-                return null;
-        }
-    };
-
-    return <div className="inline-block">{renderShape()}</div>;
+                </svg>
+            );
+        default:
+            return null;
+    }
 };
 
 export default ShapesIcon;

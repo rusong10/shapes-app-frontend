@@ -2,11 +2,16 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Shape, ShapeUpdateMessage } from "@/lib/types";
+import { Shape } from "@/lib/types/types";
+
+type ShapeUpdateMessage =
+    | { action: "created"; shape: Shape }
+    | { action: "updated"; shape: Shape }
+    | { action: "deleted"; shape_id: number };
 
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL;
 
-export function useShapesWS(shouldConnect = true) {
+export function useShapesSocket(shouldConnect: boolean) {
     const queryClient = useQueryClient();
     const socketRef = useRef<WebSocket | null>(null);
 
@@ -21,9 +26,9 @@ export function useShapesWS(shouldConnect = true) {
             return;
         }
 
-        // Close existing connection if any
-        if (socketRef.current) {
-            socketRef.current.close();
+        // Prevent multiple connections
+        if (socketRef.current && (socketRef.current.readyState === WebSocket.OPEN || socketRef.current.readyState === WebSocket.CONNECTING)) {
+            return;
         }
 
         console.log(`Attempting to connect to WebSocket at ${WS_URL}`);
@@ -32,6 +37,7 @@ export function useShapesWS(shouldConnect = true) {
 
         socket.onopen = () => {
             console.log("WebSocket connection established for shapes.");
+
             setIsConnected(true);
             setError(null);
 
@@ -49,22 +55,25 @@ export function useShapesWS(shouldConnect = true) {
 
                 switch (message.action) {
                     case "created":
-                        queryClient.setQueryData(['shapes'], (oldData: Shape[] | undefined) => {
-                            return oldData ? [message.shape, ...oldData] : [message.shape];
-                        });
+                        queryClient.setQueryData<Shape[]>(["shapes"], (oldData = []) => [
+                            message.shape,
+                            ...oldData,
+                        ]);
                         break;
                     case "updated":
-                        queryClient.setQueryData(['shapes'], (oldData: Shape[] | undefined) => {
-                            return oldData?.map(s => s.id === message.shape!.id ? message.shape : s);
-                        });
+                        queryClient.setQueryData<Shape[]>(['shapes'], (oldData = []) =>
+                            oldData.map((s) =>
+                                s.id === message.shape.id ? message.shape : s
+                            )
+                        );
                         break;
                     case "deleted":
-                        queryClient.setQueryData(['shapes'], (oldData: Shape[] | undefined) => {
-                            return oldData?.filter(s => s.id !== message.shape_id);
-                        });
+                        queryClient.setQueryData<Shape[]>(["shapes"], (oldData = []) =>
+                            oldData.filter((s) => s.id !== message.shape_id)
+                        );
                         break;
                     default:
-                        console.warn("Unknown action:", message.action);
+                        console.warn("Unknown action:", message);
                         break;
                 }
             } catch (error) {
@@ -79,9 +88,7 @@ export function useShapesWS(shouldConnect = true) {
             // Attempt to reconnect after a delay, unless it was a clean close
             if (!event.wasClean) {
                 console.log("Attempting to reconnect in 5 seconds...");
-                reconnectTimeoutRef.current = setTimeout(() => {
-                    connect();
-                }, 5000);
+                reconnectTimeoutRef.current = setTimeout(connect, 5000);
             }
         };
 
@@ -93,13 +100,13 @@ export function useShapesWS(shouldConnect = true) {
     }, [queryClient])
 
     useEffect(() => {
-        if (!shouldConnect) return;
-
-        connect();
+        if (shouldConnect) {
+            connect();
+        }
 
         // Cleanup on component unmount
         return () => {
-            if (socketRef.current) {
+            if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
                 console.log("Closing WebSocket connection for shapes.");
                 socketRef.current.close();
             }

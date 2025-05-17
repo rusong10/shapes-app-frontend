@@ -1,16 +1,11 @@
-"use client";
-import React, { useState } from "react";
+"use client"
+
+import React, { useCallback, useState } from "react";
 import { Controller, SubmitHandler, useForm } from "react-hook-form";
 
-// custom hooks
-import { useShapesWS } from "@/hooks/useShapesWS";
-import { useShapes, useCreateShape, useDeleteShape, useUpdateShape } from "@/hooks/useShapes";
-
-//custom components
-import { useAuth } from "@/context/AuthContext";
-import { ShapesTable } from "@/components/ShapesTable";
-import { ThemeToggle } from "@/components/ThemeToggle";
-import { Shape, ShapeField } from "@/lib/types";
+// custom components
+import { useAuth } from "@/context/AuthContext"
+import { MutationError, useCreateShape, useDeleteShape, useShapes, useUpdateShape } from "@/hooks/useShapes";
 
 // shadcn
 import { Label } from "@/components/ui/label";
@@ -19,25 +14,28 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
+import { Shape, ShapeForm } from "@/lib/types/types";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { ShapesTable } from "@/components/ShapesTable";
+import { useShapesSocket } from "@/hooks/useShapesSocket";
 
-export default function AdminDashboardPage() {
+export default function AdminDashboard() {
+    const { logout } = useAuth()
+    const { data: shapes, isLoading } = useShapes();
+    const { } = useShapesSocket(!!shapes);
+
+    const [selectedShape, setSelectedShape] = useState<number | undefined>(undefined)
+    const [loading, setLoading] = useState<boolean>(false)
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-    const [selectedShape, setSelectedShape] = useState<number | null>(null);
-    const [isSubmitting, setIsSubmitting] = useState(false);
     const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-    const [formError, setFormError] = useState<string | null>(null);
-    const [deleteError, setDeleteError] = useState<string | null>(null);
+    const [formError, setFormError] = useState<string | null>(null)
+    const [deleteError, setDeleteError] = useState<string | null>(null)
 
-    const { logout, accessToken } = useAuth();
-
-    const { data: shapes, isLoading, error } = useShapes();
-    useShapesWS(!!shapes);
-
-    const { control, register, handleSubmit, formState: { errors }, setValue, reset } = useForm<ShapeField>({
+    const { control, register, handleSubmit, formState: { errors }, reset } = useForm<ShapeForm>({
         defaultValues: {
             name: "",
             shape: "circle",
-            color: "#000000",
+            color: "#CECECE",
         }
     });
 
@@ -45,32 +43,14 @@ export default function AdminDashboardPage() {
     const updateShape = useUpdateShape();
     const deleteShape = useDeleteShape();
 
-    const getErrorMessage = (e: unknown): string => {
-        if (e instanceof Error) {
-            return e.message;
-        }
-
-        if (typeof e === "string") {
-            return e;
-        }
-
-        if (e && typeof e === "object" && "message" in e && typeof (e as { message: unknown }).message === "string") {
-            return (e as { message: string }).message;
-        }
-
-        return "An unexpected error occurred.";
-    };
-
     const handleOpenEditDialog = (data: Shape) => {
         setFormError(null);
         setIsEditDialogOpen(true);
         setSelectedShape(data.id);
-        setValue("name", data.name);
-        setValue("shape", data.shape);
-        setValue("color", data.color);
+        reset(data)
     };
 
-    const handleOpenCreateDialog = () => {
+    const handleOpenCreateDialog = useCallback(() => {
         setFormError(null);
         reset({
             name: "",
@@ -78,88 +58,64 @@ export default function AdminDashboardPage() {
             color: "#000000",
         });
         setIsCreateDialogOpen(true);
-    };
+    }, [reset]);
 
-    const handleCreateShape: SubmitHandler<ShapeField> = async (data: ShapeField) => {
-        setIsSubmitting(true);
+    const handleCreateShape: SubmitHandler<ShapeForm> = async (data: ShapeForm) => {
+        setLoading(true);
         setFormError(null);
 
         try {
-            const result = await createShape.mutateAsync({
-                data: {
-                    name: data.name,
-                    color: data.color,
-                    shape: data.shape,
-                },
-                token: accessToken,
-            });
-
-            if (result && !result.success) {
-                setFormError(typeof result.error === "string" ? result.error : "Failed to create shape");
-                setIsSubmitting(false);
-                return;
-            }
-
+            await createShape.mutateAsync({ data });
             setIsCreateDialogOpen(false);
-        } catch (err: unknown) {
-            setFormError(getErrorMessage(err));
+        } catch (error) {
+            if (typeof error === "object" && error && "detail" in error) {
+                setFormError((error as MutationError).detail);
+            } else {
+                setFormError("Unknown error");
+            }
         } finally {
-            setIsSubmitting(false);
+            setLoading(false);
         }
     };
 
-    const handleEditShape: SubmitHandler<ShapeField> = async (data: ShapeField) => {
-        if (selectedShape == null) {
-            setFormError("No shape selected");
-            return;
-        }
-
-        setIsSubmitting(true);
+    const handleEditShape: SubmitHandler<ShapeForm> = async (data: ShapeForm) => {
+        setLoading(true);
         setFormError(null);
 
-        try {
-            const result = await updateShape.mutateAsync({
-                id: selectedShape,
-                data: {
-                    name: data.name,
-                    color: data.color,
-                    shape: data.shape,
-                },
-                token: accessToken,
-            });
-
-            if (result && !result.success) {
-                setFormError(typeof result.error === "string" ? result.error : "Failed to update shape");
-                setIsSubmitting(false);
-                return;
-            }
-
-            setIsEditDialogOpen(false);
-        } catch (err: unknown) {
-            setFormError(getErrorMessage(err));
-        } finally {
-            setIsSubmitting(false);
+        if (!selectedShape) {
+            return
         }
-    };
+
+        try {
+            await updateShape.mutateAsync({ id: selectedShape, data: data });
+            setIsEditDialogOpen(false);
+        } catch (error) {
+            if (typeof error === "object" && error && "detail" in error) {
+                setFormError((error as MutationError).detail);
+            } else {
+                setFormError("Unknown error");
+            }
+        } finally {
+            setLoading(false);
+        }
+    }
 
     const handleDeleteShape = async (id: number) => {
+        setLoading(true);
         setDeleteError(null);
+
         try {
-            const result = await deleteShape.mutateAsync({
-                id,
-                token: accessToken
-            });
-
-            if (result && !result.success) {
-                setDeleteError(typeof result.error === "string" ? result.error : "Failed to delete shape");
+            await deleteShape.mutateAsync({ id: id });
+        } catch (error) {
+            if (typeof error === "object" && error && "detail" in error) {
+                setDeleteError((error as MutationError).detail);
+            } else {
+                setDeleteError("Unknown error");
             }
-        } catch (err: unknown) {
-            setDeleteError(getErrorMessage(err));
+        } finally {
+            setLoading(false);
         }
-    };
-
-    if (isLoading) return <p>Loading shapes...</p>;
-    if (error) return <p>Error loading shapes: {error.message}</p>;
+    }
 
     return (
         <div className="container mx-auto py-8 px-4 md:px-6 ">
@@ -168,12 +124,10 @@ export default function AdminDashboardPage() {
                     Admin Dashboard
                 </h1>
 
-
                 <div className="flex items-center space-x-3">
-                    <ThemeToggle />
                     <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
                         <DialogTrigger asChild>
-                            <Button variant="default" onClick={handleOpenCreateDialog}>Add New Entry</Button>
+                            <Button type="button" variant="default" onClick={handleOpenCreateDialog}>Add New Entry</Button>
                         </DialogTrigger>
                         <DialogContent className="sm:max-w-[425px]">
                             <DialogHeader>
@@ -228,7 +182,8 @@ export default function AdminDashboardPage() {
 
                                     <div className="grid grid-cols-4 items-center gap-2">
                                         <Label htmlFor="create-color" className="text-right">Color</Label>
-                                        <Input id="create-color"
+                                        <Input
+                                            id="create-color"
                                             type='color'
                                             className="col-span-3"
                                             {...register("color", {
@@ -248,20 +203,23 @@ export default function AdminDashboardPage() {
                                         <p className="row-span-3 text-sm text-red-600 text-center">{formError}</p>
                                     )}
                                 </div>
+
                                 <DialogFooter>
                                     <DialogClose asChild>
-                                        <Button type="button" variant="outline" disabled={isSubmitting}>Cancel</Button>
+                                        <Button type="button" variant="outline" disabled={loading}
+                                        >Cancel</Button>
                                     </DialogClose>
-                                    <Button type="submit" disabled={isSubmitting}>
-                                        {isSubmitting ? 'Saving...' : 'Save Entry'}
+                                    <Button type="submit" disabled={loading}>
+                                        {loading ? 'Creating...' : 'Create entry'}
                                     </Button>
                                 </DialogFooter>
                             </form>
                         </DialogContent>
                     </Dialog>
+
                     <AlertDialog>
                         <AlertDialogTrigger asChild>
-                            <Button variant="destructive">Log out</Button>
+                            <Button type="button" variant="destructive">Log out</Button>
                         </AlertDialogTrigger>
                         <AlertDialogContent>
                             <AlertDialogHeader>
@@ -281,6 +239,8 @@ export default function AdminDashboardPage() {
                             </AlertDialogFooter>
                         </AlertDialogContent>
                     </AlertDialog>
+
+                    <ThemeToggle />
                 </div>
             </div>
 
@@ -293,7 +253,8 @@ export default function AdminDashboardPage() {
                 isAdmin={true}
                 onEdit={handleOpenEditDialog}
                 onDelete={handleDeleteShape}
-                isSubmitting={isSubmitting}
+                isSubmitting={loading}
+                isLoading={isLoading}
             />
 
             <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
@@ -304,19 +265,22 @@ export default function AdminDashboardPage() {
                             Modify the details for this entry. Click save when done.
                         </DialogDescription>
                     </DialogHeader>
+
                     <form onSubmit={handleSubmit(handleEditShape)}>
                         <div className="grid gap-4 py-4 pb-10">
                             <div className="grid grid-cols-4 items-center gap-4">
                                 <Label htmlFor="edit-name" className="text-right">Name</Label>
-                                <Input id="edit-name"
+                                <Input
+                                    id="edit-name"
                                     maxLength={20} className="col-span-3"
-                                    disabled={isSubmitting}
+                                    disabled={loading}
                                     {...register('name', { required: 'Name is required' })}
                                 />
                                 {errors.name && (
                                     <p className="col-end-5 col-span-3 text-red-600 text-sm italic">{errors.name.message}</p>
                                 )}
                             </div>
+
                             <div className="grid grid-cols-4 items-center gap-4">
                                 <Label htmlFor="edit-shape" className="text-right">Shape</Label>
                                 <Controller
@@ -328,7 +292,7 @@ export default function AdminDashboardPage() {
                                             onValueChange={field.onChange}
                                             value={field.value}
                                             defaultValue={field.value}
-                                            disabled={isSubmitting}
+                                            disabled={loading}
                                         >
                                             <SelectTrigger id="edit-shape" className="col-span-3">
                                                 <SelectValue placeholder="Select shape" />
@@ -345,12 +309,13 @@ export default function AdminDashboardPage() {
                                     <p className="col-end-5 col-span-3 text-red-600 text-sm italic">{errors.shape.message}</p>
                                 )}
                             </div>
+
                             <div className="grid grid-cols-4 items-center gap-4">
                                 <Label htmlFor="edit-color" className="text-right">Color</Label>
                                 <Input id="edit-color"
                                     type='color'
                                     className="col-span-3"
-                                    disabled={isSubmitting}
+                                    disabled={loading}
                                     {...register("color", {
                                         required: "Color is required",
                                         pattern: {
@@ -363,25 +328,23 @@ export default function AdminDashboardPage() {
                                     <p className="col-end-5 col-span-3 text-red-600 text-sm italic">{errors.color.message}</p>
                                 )}
                             </div>
+
                             {formError && (
                                 <p className="row-span-3 text-sm text-red-600 text-center">{formError}</p>
                             )}
                         </div>
+
                         <DialogFooter>
                             <DialogClose asChild>
-                                <Button type="button" variant="outline"
-                                    disabled={isSubmitting}
-                                >Cancel</Button>
+                                <Button type="button" variant="outline" disabled={loading}>Cancel</Button>
                             </DialogClose>
-                            <Button type="submit"
-                                disabled={isSubmitting}
-                            >
-                                {isSubmitting ? 'Saving...' : 'Save Changes'}
+                            <Button type="submit" disabled={loading}>
+                                {loading ? 'Saving...' : 'Save Changes'}
                             </Button>
                         </DialogFooter>
                     </form>
                 </DialogContent>
             </Dialog>
         </div>
-    );
+    )
 }
